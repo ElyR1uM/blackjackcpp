@@ -3,6 +3,7 @@
 #include <iostream>
 
 void setup() {
+  initscr();
   clear();
   noecho();
   raw();
@@ -11,29 +12,23 @@ void setup() {
   refresh();
 }
 
-void drawText(WINDOW *window, int y, int initialX, int width, const std::string_view& text, int offset = 0) {
-  // Centers the text around half of the string length by default, an offset can be passed to shift the text horizontally.
-  int x = initialX + (width - text.length()) / 2;
-  mvwaddstr(
-    window,
+void drawText(int y, int initialX, int width, const std::string_view& text) {
+  mvaddstr(
     y,
-    x - offset,
+    initialX + (width - text.length()) / 2,
     text.data()
   );
   refresh();
-  wrefresh(window);
 }
 
 void setupDrawUI(int rows, int columns, int boardWindowPositionY, int boardWindowPositionX) {
   drawText(
-    stdscr,
     boardWindowPositionY - 1,
     boardWindowPositionX,
     BOARD_WIDTH,
     UI::StaticText::dealer
   );
   drawText(
-    stdscr,
     boardWindowPositionY + BOARD_HEIGHT,
     boardWindowPositionX,
     BOARD_WIDTH,
@@ -71,18 +66,18 @@ void displayHand(const std::vector<int>& hand, bool isDealer, bool hideFirstCard
 int main() {
   bool playAgain{true};
  
-  initscr();
+  setup();
 
   int rows{};
   int columns{};
   getmaxyx(stdscr, rows, columns);
 
-  int boardWindowPositionY{rows / 2 - BOARD_HEIGHT / 2};
-  int boardWindowPositionX{columns / 2 - BOARD_WIDTH / 2};
+  const int boardWindowPositionY{rows / 2 - BOARD_HEIGHT / 2};
+  const int boardWindowPositionX{columns / 2 - BOARD_WIDTH / 2};
+  const int verticallyCentered{boardWindowPositionY + (BOARD_HEIGHT / 2)};
 
   // Game Loop
   while (playAgain) {
-    setup();
 
     WINDOW *boardWin = newwin(BOARD_HEIGHT, BOARD_WIDTH, boardWindowPositionY , boardWindowPositionX);
     box(boardWin, 0, 0);
@@ -106,9 +101,10 @@ int main() {
     bool playerBusted{false};
     bool playerStand{false};
 
-    drawText(stdscr, boardWindowPositionY + BOARD_HEIGHT - 2, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::yourTurn);
+    drawText(boardWindowPositionY + BOARD_HEIGHT - 2, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::yourTurn);
  
     while (!playerBusted && !playerStand) {
+
       switch (getch()) {
         case 'H':
         [[fallthrough]];
@@ -134,7 +130,7 @@ int main() {
     // Dealer's turn
     if (!playerBusted) {
       if (calculateScore(dealerHand) >= 17) {
-        drawText(stdscr, boardWindowPositionY + 1, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::dealerStands);
+        drawText( boardWindowPositionY + 1, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::dealerStands);
       }
       while (calculateScore(dealerHand) < 17) {
         dealerHand.push_back(drawCard());
@@ -144,35 +140,34 @@ int main() {
     // Game Over Events
     else {
       drawWindowUI(boardWin, boardWindowPositionY, boardWindowPositionX, dealerHand, true);
-      drawText(stdscr, boardWindowPositionY + (BOARD_HEIGHT / 2) - 1, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::bust);
-      drawText(stdscr, boardWindowPositionY + (BOARD_HEIGHT / 2), boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::lose);
+      drawText(verticallyCentered - 1, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::bust);
+      drawText(verticallyCentered, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::lose);
     }
     if (calculateScore(dealerHand) > 21) {
-      drawText(stdscr, boardWindowPositionY + (BOARD_HEIGHT / 2) - 1, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::dealerBust);
-      drawText(stdscr, boardWindowPositionY + (BOARD_HEIGHT / 2), boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::win);
+      drawText(verticallyCentered - 1, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::dealerBust);
+      drawText(verticallyCentered, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::win);
     } else if (calculateScore(playerHand) > calculateScore(dealerHand) && !playerBusted) {
-      drawText(stdscr, boardWindowPositionY + (BOARD_HEIGHT / 2), boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::win);
+      drawText(verticallyCentered, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::win);
     } else if (calculateScore(playerHand) == calculateScore(dealerHand) && !playerBusted) {
-      drawText(stdscr, boardWindowPositionY + (BOARD_HEIGHT / 2), boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::push);
+      drawText(verticallyCentered, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::push);
     } else {
-      drawText(stdscr, boardWindowPositionY + (BOARD_HEIGHT / 2), boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::lose);
+      drawText(verticallyCentered, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::lose);
     }
 
     // Play again? Prompt
     drawText(
-      stdscr,
-      boardWindowPositionY + (BOARD_HEIGHT / 2) + 1,
+      verticallyCentered + 1,
       boardWindowPositionX,
       BOARD_WIDTH,
       UI::EventMessages::rematchPrompt
     );
     mvaddstr(
-      boardWindowPositionY + (BOARD_HEIGHT / 2) + 2,
+      verticallyCentered + 2,
       boardWindowPositionX + 3,
       UI::controlPrompts::yes.data()
     );
     mvaddstr(
-      boardWindowPositionY + (BOARD_HEIGHT / 2) + 2,
+      verticallyCentered + 2,
       boardWindowPositionX + BOARD_WIDTH - UI::controlPrompts::no.length() - 3,
       UI::controlPrompts::no.data()
     );
