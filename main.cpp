@@ -1,6 +1,7 @@
 #include "engine.hpp"
 #include <ncurses.h>
 #include <vector>
+#include <iostream>
 
 namespace {
 WindowConfig config;
@@ -203,5 +204,6 @@ int main() {
 
   }
   endwin();
+  std::cout << "Game Over!" << std::endl;
   return 0;
 }

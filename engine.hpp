@@ -3,7 +3,6 @@
 
 #include <string_view>
 #include <vector>
-#include <iostream>
 
 struct Card {
   const std::string_view name;
