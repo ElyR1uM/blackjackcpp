@@ -47,7 +47,7 @@ int calculateScore(const std::vector<int>& hand) {
       aceCount++;
   }
  
-  // If 2 Aces are drawn
+  // If 2 Aces are drawn --- Bug where the score goes down when you hit. Plan to address it if I get to splitting
   while (score > 21 && aceCount > 0) {
     score -= 10;
     aceCount--;

@@ -1,6 +1,10 @@
 #include "engine.hpp"
 #include <ncurses.h>
-#include <iostream>
+#include <vector>
+
+namespace {
+WindowConfig config;
+}
 
 void setup() {
   initscr();
@@ -10,44 +14,55 @@ void setup() {
   start_color();
   curs_set(0);
   refresh();
+
+  int rows{};
+  int columns{};
+  getmaxyx(stdscr, rows, columns);
+
+  config.BoardwindowPositionY = rows / 2 - BOARD_HEIGHT / 2;
+  config.BoardwindowPositionX = columns / 2 - BOARD_WIDTH / 2;
+  config.verticallyCentered = config.BoardwindowPositionY + (BOARD_HEIGHT / 2);
 }
 
-void drawText(int y, int initialX, int width, const std::string_view& text) {
+void drawText(int y, int width, const std::string_view& text) {
   mvaddstr(
     y,
-    initialX + (width - text.length()) / 2,
+    config.BoardwindowPositionX + (width - text.length()) / 2,
     text.data()
   );
   refresh();
 }
 
-void setupDrawUI(int rows, int columns, int boardWindowPositionY, int boardWindowPositionX) {
+void setupDrawUI() {
   drawText(
-    boardWindowPositionY - 1,
-    boardWindowPositionX,
+    config.BoardwindowPositionY - 1,
     BOARD_WIDTH,
     UI::StaticText::dealer
   );
   drawText(
-    boardWindowPositionY + BOARD_HEIGHT,
-    boardWindowPositionX,
+    config.BoardwindowPositionY + BOARD_HEIGHT,
     BOARD_WIDTH,
     UI::StaticText::player
   );
+  drawText(
+    config.BoardwindowPositionY + BOARD_HEIGHT - 2,
+    BOARD_WIDTH,
+    UI::EventMessages::yourTurn
+  );
   mvaddstr(
-    boardWindowPositionY + BOARD_HEIGHT + 1,
-    boardWindowPositionX,
+    config.BoardwindowPositionY + BOARD_HEIGHT + 1,
+    config.BoardwindowPositionX,
     UI::controlPrompts::hit.data()
   );
   mvaddstr(
-    boardWindowPositionY + BOARD_HEIGHT + 1,
-    boardWindowPositionX + BOARD_WIDTH - UI::controlPrompts::stand.length(),
+    config.BoardwindowPositionY + BOARD_HEIGHT + 1,
+    config.BoardwindowPositionX + BOARD_WIDTH - UI::controlPrompts::stand.length(),
     UI::controlPrompts::stand.data()
   );
   refresh();
 }
 
-void drawWindowUI(WINDOW *window, int boardWindowPositionY, int boardWindowPositionX, const std::vector<int>& hand, bool isDealer, bool hide = false) {
+void drawWindowUI(WINDOW *window, const std::vector<int>& hand, bool isDealer, bool hide = false) {
   int y{isDealer ? 0 : BOARD_HEIGHT - 1};
   std::string_view score{UI::displayScore(hand, hide)};
   mvwaddstr(
@@ -63,27 +78,96 @@ void displayHand(const std::vector<int>& hand, bool isDealer, bool hideFirstCard
   // Draw the virtual cards on the board when I have the willpower to implement this
 }
 
+bool evaluateTurn(WINDOW *window, std::vector<int>& hand) {
+  while (true) {
+    switch (getch()) {
+      case 'H':
+      [[fallthrough]];
+      case 'h':
+      hand.push_back(drawCard());
+      break;
+      case 'S':
+      [[fallthrough]];
+      case 's':
+      return false;
+      break;
+      default:
+      break;
+    }
+
+    drawWindowUI(window, hand, false);
+
+    if (calculateScore(hand) > 21) {
+      return true;
+    }
+  }
+}
+
+void gameOverEvents(const std::vector<int>& playerHand, const std::vector<int>& dealerHand, bool playerBusted, WINDOW *window) {
+  if (playerBusted) {
+    drawWindowUI(window, dealerHand, true);
+    drawText(config.verticallyCentered - 1, BOARD_WIDTH, UI::EventMessages::bust);
+    drawText(config.verticallyCentered, BOARD_WIDTH, UI::EventMessages::lose);
+  }
+  if (calculateScore(dealerHand) > 21) {
+    drawText(config.verticallyCentered - 1, BOARD_WIDTH, UI::EventMessages::dealerBust);
+    drawText(config.verticallyCentered, BOARD_WIDTH, UI::EventMessages::win);
+  } else if (calculateScore(playerHand) > calculateScore(dealerHand) && !playerBusted) {
+    drawText(config.verticallyCentered, BOARD_WIDTH, UI::EventMessages::win);
+  } else if (calculateScore(playerHand) == calculateScore(dealerHand) && !playerBusted) {
+    drawText(config.verticallyCentered, BOARD_WIDTH, UI::EventMessages::push);
+  } else {
+    drawText(config.verticallyCentered, BOARD_WIDTH, UI::EventMessages::lose);
+  }
+}
+
+bool replayPrompt() {
+  // Play again? Prompt
+  drawText(
+    config.verticallyCentered + 1,
+    BOARD_WIDTH,
+    UI::EventMessages::rematchPrompt
+  );
+  mvaddstr(
+    config.verticallyCentered + 2,
+    config.BoardwindowPositionX + 3,
+    UI::controlPrompts::yes.data()
+  );
+  mvaddstr(
+    config.verticallyCentered + 2,
+    config.BoardwindowPositionX + BOARD_WIDTH - UI::controlPrompts::no.length() - 3,
+    UI::controlPrompts::no.data()
+  );
+
+  switch(getch()) {
+    case 'Y':
+    [[fallthrough]];
+    case 'y':
+    return true;
+    break;
+    case 'N':
+    [[fallthrough]];
+    case 'n':
+    return false;
+    break;
+    default:
+    return false;
+    break;
+  }
+}
+
 int main() {
-  bool playAgain{true};
- 
   setup();
 
-  int rows{};
-  int columns{};
-  getmaxyx(stdscr, rows, columns);
-
-  const int boardWindowPositionY{rows / 2 - BOARD_HEIGHT / 2};
-  const int boardWindowPositionX{columns / 2 - BOARD_WIDTH / 2};
-  const int verticallyCentered{boardWindowPositionY + (BOARD_HEIGHT / 2)};
-
+  bool playAgain{true};
   // Game Loop
   while (playAgain) {
 
-    WINDOW *boardWin = newwin(BOARD_HEIGHT, BOARD_WIDTH, boardWindowPositionY , boardWindowPositionX);
+    WINDOW *boardWin = newwin(BOARD_HEIGHT, BOARD_WIDTH, config.BoardwindowPositionY , config.BoardwindowPositionX);
     box(boardWin, 0, 0);
     wrefresh(boardWin);
 
-    setupDrawUI(rows, columns, boardWindowPositionY, boardWindowPositionX);
+    setupDrawUI();
 
     std::vector<int> playerHand;
     std::vector<int> dealerHand;
@@ -95,103 +179,29 @@ int main() {
     dealerHand.push_back(drawCard());
     dealerHand.push_back(drawCard());
 
-    drawWindowUI(boardWin, boardWindowPositionY, boardWindowPositionX, playerHand, false);
-    drawWindowUI(boardWin, boardWindowPositionY, boardWindowPositionX, dealerHand, true, true);
+    drawWindowUI(boardWin, playerHand, false);
+    drawWindowUI(boardWin, dealerHand, true, true);
 
-    bool playerBusted{false};
-    bool playerStand{false};
-
-    drawText(boardWindowPositionY + BOARD_HEIGHT - 2, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::yourTurn);
- 
-    while (!playerBusted && !playerStand) {
-
-      switch (getch()) {
-        case 'H':
-        [[fallthrough]];
-        case 'h':
-        playerHand.push_back(drawCard());
-        break;
-        case 'S':
-        [[fallthrough]];
-        case 's':
-        playerStand = true;
-        break;
-        default:
-        break;
-      }
-
-      drawWindowUI(boardWin, boardWindowPositionY, boardWindowPositionX, playerHand, false);
-
-      if (calculateScore(playerHand) > 21) {
-        playerBusted = true;
-      }
-    }
+    bool playerBusted{evaluateTurn(boardWin, playerHand)};
 
     // Dealer's turn
     if (!playerBusted) {
       if (calculateScore(dealerHand) >= 17) {
-        drawText( boardWindowPositionY + 1, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::dealerStands);
+        drawText(config.BoardwindowPositionY + 1, BOARD_WIDTH, UI::EventMessages::dealerStands);
       }
       while (calculateScore(dealerHand) < 17) {
         dealerHand.push_back(drawCard());
       }
-      drawWindowUI(boardWin, boardWindowPositionY, boardWindowPositionX, dealerHand, true);
-    }
-    // Game Over Events
-    else {
-      drawWindowUI(boardWin, boardWindowPositionY, boardWindowPositionX, dealerHand, true);
-      drawText(verticallyCentered - 1, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::bust);
-      drawText(verticallyCentered, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::lose);
-    }
-    if (calculateScore(dealerHand) > 21) {
-      drawText(verticallyCentered - 1, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::dealerBust);
-      drawText(verticallyCentered, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::win);
-    } else if (calculateScore(playerHand) > calculateScore(dealerHand) && !playerBusted) {
-      drawText(verticallyCentered, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::win);
-    } else if (calculateScore(playerHand) == calculateScore(dealerHand) && !playerBusted) {
-      drawText(verticallyCentered, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::push);
-    } else {
-      drawText(verticallyCentered, boardWindowPositionX, BOARD_WIDTH, UI::EventMessages::lose);
+      drawWindowUI(boardWin, dealerHand, true);
     }
 
-    // Play again? Prompt
-    drawText(
-      verticallyCentered + 1,
-      boardWindowPositionX,
-      BOARD_WIDTH,
-      UI::EventMessages::rematchPrompt
-    );
-    mvaddstr(
-      verticallyCentered + 2,
-      boardWindowPositionX + 3,
-      UI::controlPrompts::yes.data()
-    );
-    mvaddstr(
-      verticallyCentered + 2,
-      boardWindowPositionX + BOARD_WIDTH - UI::controlPrompts::no.length() - 3,
-      UI::controlPrompts::no.data()
-    );
+    gameOverEvents(playerHand, dealerHand, playerBusted, boardWin);
 
-    switch(getch()) {
-      case 'Y':
-      [[fallthrough]];
-      case 'y':
-      break;
-      case 'N':
-      [[fallthrough]];
-      case 'n':
-      playAgain = false;
-      break;
-      default:
-      playAgain = false;
-      break;
-    }
+    playAgain = replayPrompt();
 
     delwin(boardWin);
 
   }
-
   endwin();
-
   return 0;
 }

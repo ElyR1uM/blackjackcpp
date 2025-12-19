@@ -3,6 +3,7 @@
 
 #include <string_view>
 #include <vector>
+#include <iostream>
 
 struct Card {
   const std::string_view name;
@@ -14,6 +15,12 @@ const Card cards[] = {
   {"Five", 5}, {"Six", 6},  {"Seven", 7}, {"Eight", 8},
   {"Nine", 9}, {"Ten", 10}, {"Jack", 10}, {"Queen", 10},
   {"King", 10}
+};
+
+struct WindowConfig {
+  int BoardwindowPositionY{};
+  int BoardwindowPositionX{};
+  int verticallyCentered{};
 };
 
 namespace UI {
