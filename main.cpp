@@ -123,7 +123,6 @@ void gameOverEvents(const std::vector<int>& playerHand, const std::vector<int>& 
 }
 
 bool replayPrompt() {
-  // Play again? Prompt
   drawText(
     config.verticallyCentered + 1,
     BOARD_WIDTH,
