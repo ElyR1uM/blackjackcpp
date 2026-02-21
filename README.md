@@ -6,11 +6,11 @@ C++ and improve my coding in general, so expect
 some coding atrocities. The best way to avoid
 mistakes is to learn from them.
 
-## Building:
+## Building
 
 Download or clone the code, cd into the directory and:
-```bash
-$ make
-$ ./blackjack
-```
 
+```bash
+make
+./blackjack
+```
